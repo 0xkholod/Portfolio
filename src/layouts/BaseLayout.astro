@@ -1,0 +1,53 @@
+---
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import BrandIcon from "../components/BrandIcon.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  current?: "home" | "about" | "journey" | "articles" | "credentials";
+}
+
+const {
+  title = "0xkholod — Systems & Offensive Security",
+  description = "The personal site of Alejandro Gómez Kholodilov: systems administration, offensive security, certifications, and technical writing.",
+  current = "home",
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+    <meta name="theme-color" content="#080a11" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body data-page={current}>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="cursor-glow" aria-hidden="true"></div>
+    <canvas id="cursor-trail" aria-hidden="true"></canvas>
+    <SiteHeader current={current} />
+    <main id="main"><slot /></main>
+    <footer class="site-footer shell">
+      <a class="footer-mark" href="/" aria-label="0xkholod home"><span>𖦏</span> 0XKHOLOD</a>
+      <div class="footer-socials" aria-label="Social profiles">
+        <a class="github" href="https://github.com/0xkholod" target="_blank" rel="noreferrer" aria-label="GitHub"><BrandIcon name="github" size={18} /></a>
+        <a class="htb" href="https://profile.hackthebox.com/profile/019e367d-68ab-7287-bd06-ec8449a07adb" target="_blank" rel="noreferrer" aria-label="Hack The Box"><BrandIcon name="htb" size={18} /></a>
+        <a class="monkeytype" href="https://monkeytype.com/profile/0xkholod" target="_blank" rel="noreferrer" aria-label="Monkeytype"><BrandIcon name="monkeytype" size={19} /></a>
+        <span class="linkedin is-disabled" aria-label="LinkedIn coming soon" title="LinkedIn coming soon"><BrandIcon name="linkedin" size={18} /></span>
+        <span class="youtube is-disabled" aria-label="YouTube coming soon" title="YouTube coming soon"><BrandIcon name="youtube" size={19} /></span>
+      </div>
+    </footer>
+    <script src="../scripts/experience.ts"></script>
+  </body>
+</html>

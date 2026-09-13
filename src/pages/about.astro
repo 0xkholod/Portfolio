@@ -1,0 +1,59 @@
+---
+import { ServerCog, ShieldCheck, UserRound, Waypoints } from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PlatformLinks from "../components/PlatformLinks.astro";
+---
+
+<BaseLayout current="about" title="About — 0xkholod" description="About Alejandro Gómez Kholodilov, a systems administrator and offensive security specialist.">
+  <section class="page-hero shell reveal">
+    <p class="kicker">01 / ABOUT</p>
+    <h1>Offensive insight.<br /><span>Stronger defenses.</span></h1>
+    <p class="page-lede">I secure real infrastructure and assess how its controls, trust boundaries, and applications fail.</p>
+  </section>
+
+  <section class="about-grid shell">
+    <article class="about-copy reveal">
+      <div class="section-icon"><Waypoints size={22} stroke-width={1.6} /></div>
+      <p>
+        I began in systems administration, where my work grew from keeping infrastructure operational to hardening Linux, Windows Server, and Active Directory environments, securing web applications, managing access, and responding to incidents.
+      </p>
+      <p>
+        That operational background defines how I approach security: understand how a system is built, trace where trust breaks, validate the weakness, and explain the real impact without losing sight of how the environment must continue to operate.
+      </p>
+      <p>
+        I hold the HTB CPTS and I am currently pursuing the HTB CWES to deepen my web exploitation skills. My focus is offensive security and red teaming, grounded in the discipline and accountability learned in systems operations.
+      </p>
+      <PlatformLinks />
+    </article>
+
+    <div class="portrait-placeholder tilt-card reveal" role="img" aria-label="Portrait placeholder for Alejandro Gómez Kholodilov">
+      <canvas class="portrait-liquid-border" aria-hidden="true"></canvas>
+      <span class="portrait-orbit portrait-orbit-outer" aria-hidden="true"></span>
+      <span class="portrait-orbit portrait-orbit-inner" aria-hidden="true"></span>
+      <span class="portrait-avatar" aria-hidden="true">
+        <UserRound size={102} stroke-width={1.15} />
+      </span>
+    </div>
+  </section>
+
+  <section class="practice-strip shell">
+    <article class="practice-card reveal">
+      <ServerCog size={23} stroke-width={1.6} />
+      <span>OPERATING FOUNDATION</span>
+      <h2>Systems Administration</h2>
+      <p>Infrastructure, Active Directory, Windows and Linux operations, access control, and incident response.</p>
+    </article>
+    <article class="practice-card reveal">
+      <ShieldCheck size={23} stroke-width={1.6} />
+      <span>SECURITY PRACTICE</span>
+      <h2>Hardening & Assessment</h2>
+      <p>Securing real environments and testing the controls, trust relationships, and assumptions behind them.</p>
+    </article>
+    <article class="practice-card reveal">
+      <Waypoints size={23} stroke-width={1.6} />
+      <span>RED TEAM FOCUS</span>
+      <h2>Offensive Security</h2>
+      <p>Penetration testing and red-team methodology developed through structured, hands-on practice.</p>
+    </article>
+  </section>
+</BaseLayout>

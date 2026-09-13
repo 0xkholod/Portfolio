@@ -1,0 +1,54 @@
+---
+import { ArrowRight, BookOpen, Network, ShieldCheck, X } from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PlatformLinks from "../components/PlatformLinks.astro";
+---
+
+<BaseLayout current="home">
+  <section class="hero shell" aria-labelledby="identity-heading">
+    <div class="snow-stage reveal" aria-label="Interactive neon particle snowflake. Move the pointer near it to disperse the particles.">
+      <canvas id="snowflake-canvas"></canvas>
+    </div>
+    <div class="hero-copy reveal">
+      <p class="eyebrow"><span></span> OFFENSIVE SECURITY SPECIALIST</p>
+      <div class="alias-stage">
+        <h1 id="identity-heading" data-scramble="0xkholod">0xkholod</h1>
+        <canvas id="alias-particles" aria-hidden="true"></canvas>
+      </div>
+      <p class="legal-name">Alejandro Gómez Kholodilov</p>
+      <p class="hero-description">I secure Active Directory environments and web applications, applying offensive-security knowledge to test, validate, and strengthen the environments I harden.</p>
+      <a class="credential-chip" href="/credentials#cpts" aria-label="View the verified HTB CPTS credential">
+        <span class="credential-badge"><img src="/certifications/htb-cpts-badge.png" alt="HTB CPTS badge" /></span>
+        <span><small>VERIFIED CREDENTIAL</small><b>HTB CPTS</b></span>
+        <ShieldCheck size={18} />
+      </a>
+    </div>
+    <PlatformLinks />
+    <div class="creed reveal" aria-label="Personal principle">
+      <span>WORK</span><i>+</i><span>CONSISTENCY</span><i>OVER</i><span>TALENT</span>
+    </div>
+  </section>
+
+  <section id="field-manual-preview" class="manual-preview shell reveal" aria-labelledby="manual-title">
+    <div class="manual-copy">
+      <p class="kicker">FIELD MANUAL / LIVING KNOWLEDGE BASE</p>
+      <h2 id="manual-title">My living offensive-security knowledge base.</h2>
+      <p>The Field Manual stores the notes, procedures, and references I collect and create across penetration testing and red-team research. It is organized for fast retrieval while preserving the reasoning behind every technique.</p>
+      <a class="primary-link manual-button" href="https://docs.0xkholod.com" target="_blank" rel="noreferrer">
+        <BookOpen size={20} /> Open the Field Manual <ArrowRight size={18} />
+      </a>
+    </div>
+    <div class="graph-modal-scrim" aria-hidden="true"></div>
+    <div class="knowledge-map" data-source="https://docs.0xkholod.com/static/contentIndex.json">
+      <button class="graph-expand" type="button" aria-label="Open expanded graph view" aria-expanded="false">
+        <Network class="graph-open-icon" size={19} aria-hidden="true" />
+        <X class="graph-close-icon" size={19} aria-hidden="true" />
+      </button>
+      <canvas id="knowledge-canvas"></canvas>
+      <canvas id="liquid-border-canvas" aria-hidden="true"></canvas>
+      <div class="graph-tooltip" hidden></div>
+      <div class="graph-hint">DRAG TO PAN / SCROLL TO ZOOM</div>
+      <div class="graph-meta"><small>LIVE FIELD MANUAL GRAPH</small><span id="graph-status"><i></i> CONNECTING</span></div>
+    </div>
+  </section>
+</BaseLayout>

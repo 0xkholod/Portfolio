@@ -1,0 +1,63 @@
+---
+import { Award, BriefcaseBusiness, Network, UsersRound } from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const timeline = [
+  {
+    date: "JUL 2022",
+    title: "Systems Administrator",
+    subtitle: "digitalDot / operational foundation",
+    icon: BriefcaseBusiness,
+    copy: "Began working across Linux, Windows Server, and Active Directory: maintaining services, hardening systems, securing WordPress and PrestaShop, managing access, automating tasks, and responding to incidents.",
+    tags: ["Infrastructure", "Active Directory", "Web Security"],
+  },
+  {
+    date: "OCT 2024",
+    title: "Systems Department Lead",
+    subtitle: "digitalDot / ownership and direction",
+    icon: UsersRound,
+    copy: "Took responsibility for the Systems department, combining hands-on administration with coordination, technical decisions, service continuity, and the security of the environments under the team’s care.",
+    tags: ["Leadership", "Operations", "Security"],
+  },
+  {
+    date: "SEP 2026",
+    title: "HTB CPTS Achieved",
+    subtitle: "Hack The Box / offensive validation",
+    icon: Award,
+    copy: "Validated an end-to-end penetration testing workflow spanning reconnaissance, exploitation, Active Directory, lateral movement, privilege escalation, pivoting, and professional reporting.",
+    tags: ["Pentesting", "Reporting", "Active Directory"],
+  },
+  {
+    date: "SEP 2026",
+    title: "Towards Red Teaming",
+    subtitle: "building depth, not shortcuts",
+    icon: Network,
+    copy: "Turning operational knowledge into an offensive advantage: studying how systems fail, documenting the reasoning, and developing the depth required for dedicated offensive-security work.",
+    tags: ["Offensive Security", "Research", "Consistency"],
+  },
+];
+---
+
+<BaseLayout current="journey" title="Journey — 0xkholod" description="Alejandro Gómez Kholodilov’s professional path from systems administration towards offensive security.">
+  <section class="page-hero compact shell reveal">
+    <p class="kicker">02 / JOURNEY</p>
+    <h1>Career experience.<br /><span>Technical milestones.</span></h1>
+    <p class="page-lede">A short timeline of the moments that changed the scope, responsibility, and direction of my work.</p>
+  </section>
+
+  <section class="timeline shell" aria-label="Professional journey">
+    {timeline.map(({ date, title, subtitle, icon: Icon, copy, tags }, index) => (
+      <article class:list={["timeline-entry", "reveal", { right: index % 2 !== 0 }]} data-tone={index % 2 !== 0 ? "cyan" : "pink"}>
+        <div class="timeline-node"><Icon size={20} stroke-width={1.7} /></div>
+        <div class="timeline-card">
+          <canvas class="timeline-liquid-border" aria-hidden="true"></canvas>
+          <span class="timeline-date">{date}</span>
+          <h2>{title}</h2>
+          <h3>{subtitle}</h3>
+          <p>{copy}</p>
+          <div class="timeline-tags">{tags.map((tag) => <span>{tag}</span>)}</div>
+        </div>
+      </article>
+    ))}
+  </section>
+</BaseLayout>

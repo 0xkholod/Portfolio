@@ -1,0 +1,31 @@
+---
+import BrandIcon from "./BrandIcon.astro";
+
+interface Props { compact?: boolean; }
+const { compact = false } = Astro.props;
+---
+
+<div class:list={["platform-links", { compact }]} aria-label="Public profiles and projects">
+  <a class="platform github" href="https://github.com/0xkholod" target="_blank" rel="noreferrer">
+    <BrandIcon name="github" />
+    <span><b>GitHub</b><small>Code & projects</small></span>
+  </a>
+  <a class="platform htb" href="https://profile.hackthebox.com/profile/019e367d-68ab-7287-bd06-ec8449a07adb" target="_blank" rel="noreferrer">
+    <BrandIcon name="htb" />
+    <span><b>Hack The Box</b><small>Public profile</small></span>
+  </a>
+  <a class="platform monkeytype" href="https://monkeytype.com/profile/0xkholod" target="_blank" rel="noreferrer">
+    <BrandIcon name="monkeytype" />
+    <span><b>Monkeytype</b><small>Typing profile</small></span>
+  </a>
+  <span class="platform linkedin is-disabled" aria-disabled="true" title="Profile coming soon">
+    <BrandIcon name="linkedin" />
+    <span><b>LinkedIn</b><small>Coming soon</small></span>
+  </span>
+  {!compact && (
+    <span class="platform youtube is-disabled" aria-disabled="true" title="Channel coming soon">
+      <BrandIcon name="youtube" size={23} />
+      <span><b>YouTube</b><small>Coming soon</small></span>
+    </span>
+  )}
+</div>

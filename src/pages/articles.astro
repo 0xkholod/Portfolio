@@ -1,0 +1,31 @@
+---
+import { ArrowRight, PenLine, Radio } from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout current="articles" title="Articles — 0xkholod" description="Long-form technical articles by 0xkholod, focused on systems and offensive security.">
+  <section class="page-hero compact shell reveal">
+    <p class="kicker">03 / ARTICLES</p>
+    <h1>Technical articles.<br /><span>Built from hands-on work.</span></h1>
+    <p class="page-lede">Articles will turn hands-on work into clear explanations of what happens, why it happens, and how to reason through it.</p>
+  </section>
+
+  <section class="articles-stage shell">
+    <article class="article-card featured tilt-card reveal">
+      <div class="article-visual" aria-hidden="true">
+        <div class="transmission-rings"><Radio size={42} /></div>
+        <span>INCOMING / 001</span>
+      </div>
+      <div class="article-body">
+        <div class="article-meta"><span><i></i> IN PREPARATION</span><span>FIRST PUBLICATION</span></div>
+        <h2>The first transmission is being written.</h2>
+        <p>No filler and no artificial archive. The article library will open with the first finished piece, built around practical evidence and low-level reasoning.</p>
+        <div class="article-bottom">
+          <span><PenLine size={17} /> Drafting now</span>
+          <span class="ghost-action">Launch article <ArrowRight size={17} /></span>
+        </div>
+      </div>
+    </article>
+
+  </section>
+</BaseLayout>

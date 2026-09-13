@@ -1,0 +1,39 @@
+---
+import { Menu, X } from "@lucide/astro";
+
+interface Props {
+  current?: "home" | "about" | "journey" | "articles" | "credentials";
+}
+
+const { current = "home" } = Astro.props;
+const links = [
+  { href: "/about", label: "ABOUT ME", id: "about" },
+  { href: "/journey", label: "JOURNEY", id: "journey" },
+  { href: "/articles", label: "ARTICLES", id: "articles" },
+  { href: "/credentials", label: "CREDENTIALS", id: "credentials" },
+];
+---
+
+<header class="site-header shell">
+  <a class="brand" href="/" aria-label="0xkholod home">
+    <canvas class="brand-liquid-border" aria-hidden="true"></canvas>
+    <span class="brand-sigil" aria-hidden="true">
+      <span class="sigil-target">𖦏</span>
+      <span class="sigil-snow">❄</span>
+    </span>
+    <span>0xKHOLOD</span>
+  </a>
+  <nav class="desktop-nav" aria-label="Primary navigation">
+    {links.map((link) => (
+      <a href={link.href} aria-current={current === link.id ? "page" : undefined}>{link.label}</a>
+    ))}
+    <a class="manual-nav" href="https://docs.0xkholod.com" target="_blank" rel="noreferrer">FIELD MANUAL <span>↗</span></a>
+  </nav>
+  <details class="mobile-nav">
+    <summary aria-label="Open navigation"><Menu class="menu-open" size={20} /><X class="menu-close" size={20} /></summary>
+    <nav aria-label="Mobile navigation">
+      {links.map((link) => <a href={link.href}>{link.label}</a>)}
+      <a href="https://docs.0xkholod.com" target="_blank" rel="noreferrer">FIELD MANUAL ↗</a>
+    </nav>
+  </details>
+</header>
