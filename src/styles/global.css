@@ -31,6 +31,38 @@ body {
   font-family: var(--sans);
   min-width: 320px;
   overflow-x: hidden;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: opacity .28s cubic-bezier(.2,.75,.2,1), transform .34s cubic-bezier(.2,.75,.2,1);
+}
+html.site-booting body { opacity: 0; }
+html.site-ready body { animation: site-arrive .48s cubic-bezier(.16,.84,.24,1); }
+html.is-page-leaving body { opacity: 0; transform: translate3d(0, -7px, 0) scale(.998); }
+
+@keyframes site-arrive {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.998); }
+}
+
+@view-transition { navigation: auto; }
+.site-header { view-transition-name: site-header; }
+main { view-transition-name: page-content; }
+.site-footer { view-transition-name: site-footer; }
+::view-transition-group(site-header),
+::view-transition-group(site-footer) {
+  animation-duration: .46s;
+  animation-timing-function: cubic-bezier(.16,.84,.24,1);
+}
+::view-transition-old(page-content) {
+  animation: page-content-out .24s cubic-bezier(.4,0,1,1) both;
+}
+::view-transition-new(page-content) {
+  animation: page-content-in .52s cubic-bezier(.16,.84,.24,1) both;
+}
+@keyframes page-content-out {
+  to { opacity: 0; transform: translate3d(0, -8px, 0) scale(.997); }
+}
+@keyframes page-content-in {
+  from { opacity: 0; transform: translate3d(0, 13px, 0) scale(.997); }
 }
 body::before {
   content: "";
@@ -446,4 +478,13 @@ body.graph-expanded main { z-index: 60; }
   .article-body { padding: 2rem 1.4rem; }.article-meta, .article-bottom { align-items: flex-start; flex-direction: column; }
   .credential-dialog { width: calc(100% - 16px); max-height: calc(100vh - 16px); border-radius: 18px; }.certificate-stage { padding: 3.7rem .8rem 1rem; }.dialog-copy { padding: 1.5rem; }.dialog-copy dl { grid-template-columns: 1fr; }.dialog-copy dl div { border-bottom: 1px solid var(--line); }.dialog-actions { display: grid; }.brand-action { justify-content: center; }
   .progress-dialog { padding: 3.8rem 1rem 1.5rem; }.modal-progress > span { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
+  html.site-ready body { animation: none; }
+  html.is-page-leaving body { opacity: 1; transform: none; }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }

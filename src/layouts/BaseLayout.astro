@@ -23,6 +23,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
 <!doctype html>
 <html lang="en">
   <head>
+    <script is:inline>
+      document.documentElement.classList.add("site-booting");
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
@@ -49,5 +52,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
       </div>
     </footer>
     <script src="../scripts/experience.ts"></script>
+    <script is:inline>
+      const revealSite = () => requestAnimationFrame(() => {
+        document.documentElement.classList.remove("site-booting");
+        document.documentElement.classList.add("site-ready");
+      });
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", revealSite, { once: true });
+      } else {
+        revealSite();
+      }
+    </script>
   </body>
 </html>

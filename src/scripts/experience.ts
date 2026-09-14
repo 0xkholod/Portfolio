@@ -634,7 +634,7 @@ const initKnowledgeMap = async () => {
   let raw: Record<string, {slug?:string; title?:string; links?:string[]; tags?:string[]}> = {}
   try {
     const source = location.hostname === "localhost" || location.hostname === "127.0.0.1" ? "/manual-index" : wrapper.dataset.source!
-    const response = await fetch(source, { cache: "no-store" })
+    const response = await fetch(source)
     if (!response.ok) throw new Error(String(response.status))
     raw = await response.json()
   } catch {
@@ -1136,6 +1136,33 @@ const initDialogs = () => {
   })
 }
 
+const initPageTransitions = () => {
+  const root = document.documentElement
+  const supportsNativeCrossDocumentTransitions = "onpageswap" in window
+
+  window.addEventListener("pageshow", () => root.classList.remove("is-page-leaving"))
+  if (reducedMotion || supportsNativeCrossDocumentTransitions) return
+
+  let navigating = false
+  document.addEventListener("click", (event) => {
+    if (navigating || event.defaultPrevented || event.button !== 0) return
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+    const origin = event.target instanceof Element ? event.target : null
+    const link = origin?.closest<HTMLAnchorElement>("a[href]")
+    if (!link || link.target === "_blank" || link.hasAttribute("download")) return
+
+    const destination = new URL(link.href, location.href)
+    if (destination.origin !== location.origin) return
+    if (destination.pathname === location.pathname && destination.search === location.search) return
+
+    event.preventDefault()
+    navigating = true
+    root.classList.add("is-page-leaving")
+    window.setTimeout(() => location.assign(destination.href), 270)
+  })
+}
+
 initCursorTrail()
 initBrandLiquidBorder()
 initPortraitLiquidBorder()
@@ -1145,3 +1172,4 @@ initKnowledgeMap()
 initTimelineMotion()
 initCertificateMotion()
 initDialogs()
+initPageTransitions()
