@@ -1,31 +1,120 @@
 ---
-import { ArrowRight, PenLine, Radio } from "@lucide/astro";
+import { ArrowRight, Clock3, PenLine, Radio } from "@lucide/astro";
+import { Image } from "astro:assets";
+import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  articleHref,
+  articleReadingMinutes,
+  formatArticleDate,
+  sortArticles,
+} from "../utils/articles";
+
+const articles = sortArticles(await getCollection("articles", ({ id, data }) => (
+  !id.startsWith("_templates/") && (import.meta.env.PROD ? !data.draft : true)
+)));
+const featuredArticle = articles.find(({ data }) => data.featured) ?? articles[0];
+const archive = articles.filter((article) => article.id !== featuredArticle?.id);
 ---
 
 <BaseLayout current="articles" title="Articles — 0xkholod" description="Long-form technical articles by 0xkholod, focused on systems and offensive security.">
   <section class="page-hero compact shell reveal">
     <p class="kicker">03 / ARTICLES</p>
     <h1>Technical articles.<br /><span>Built from hands-on work.</span></h1>
-    <p class="page-lede">Articles will turn hands-on work into clear explanations of what happens, why it happens, and how to reason through it.</p>
+    <p class="page-lede">Long-form writing that starts with how a system works, then follows the evidence all the way down.</p>
   </section>
 
-  <section class="articles-stage shell">
-    <article class="article-card featured tilt-card reveal">
-      <div class="article-visual" aria-hidden="true">
-        <div class="transmission-rings"><Radio size={42} /></div>
-        <span>INCOMING / 001</span>
-      </div>
-      <div class="article-body">
-        <div class="article-meta"><span><i></i> IN PREPARATION</span><span>FIRST PUBLICATION</span></div>
-        <h2>The first transmission is being written.</h2>
-        <p>No filler and no artificial archive. The article library will open with the first finished piece, built around practical evidence and low-level reasoning.</p>
-        <div class="article-bottom">
-          <span><PenLine size={17} /> Drafting now</span>
-          <span class="ghost-action">Launch article <ArrowRight size={17} /></span>
+  <section class="articles-stage shell" aria-label="Article archive">
+    {featuredArticle ? (
+      <a class="article-card featured tilt-card reveal" href={articleHref(featuredArticle)}>
+        <div class:list={["article-visual", { "has-cover": featuredArticle.data.cover }]}>
+          {featuredArticle.data.cover ? (
+            <Image
+              src={featuredArticle.data.cover}
+              alt={featuredArticle.data.coverAlt ?? ""}
+              widths={[480, 720, 960]}
+              sizes="(max-width: 980px) 92vw, 36vw"
+              loading="eager"
+            />
+          ) : (
+            <div class="transmission-rings" aria-hidden="true"><Radio size={42} /></div>
+          )}
+          <span>FEATURED / {featuredArticle.id.toUpperCase().replace("/INDEX", "")}</span>
+        </div>
+        <div class="article-body">
+          <div class="article-meta">
+            <span><i></i> {featuredArticle.data.draft ? "DRAFT PREVIEW" : "PUBLISHED"}</span>
+            <time datetime={featuredArticle.data.publishedAt.toISOString()}>{formatArticleDate(featuredArticle.data.publishedAt)}</time>
+          </div>
+          <h2>{featuredArticle.data.title}</h2>
+          <p>{featuredArticle.data.description}</p>
+          {featuredArticle.data.tags.length > 0 && (
+            <div class="article-tags" aria-label="Article tags">
+              {featuredArticle.data.tags.map((tag) => <span>{tag}</span>)}
+            </div>
+          )}
+          <div class="article-bottom">
+            <span><Clock3 size={17} /> {articleReadingMinutes(featuredArticle.body)} min read</span>
+            <span class="article-launch">Read article <ArrowRight size={17} /></span>
+          </div>
+        </div>
+      </a>
+    ) : (
+      <article class="article-card featured reveal">
+        <div class="article-visual" aria-hidden="true">
+          <div class="transmission-rings"><Radio size={42} /></div>
+          <span>INCOMING / 001</span>
+        </div>
+        <div class="article-body">
+          <div class="article-meta"><span><i></i> IN PREPARATION</span><span>FIRST PUBLICATION</span></div>
+          <h2>The first transmission is being written.</h2>
+          <p>No filler and no artificial archive. This library will open with the first finished piece, built around practical evidence and low-level reasoning.</p>
+          <div class="article-bottom">
+            <span><PenLine size={17} /> Drafting now</span>
+            <span class="ghost-action">Awaiting publication</span>
+          </div>
+        </div>
+      </article>
+    )}
+
+    {archive.length > 0 && (
+      <div class="article-archive">
+        <header class="article-archive-heading reveal">
+          <p class="kicker">ARCHIVE / {String(archive.length).padStart(2, "0")}</p>
+          <h2>All transmissions.</h2>
+        </header>
+        <div class="article-list">
+          {archive.map((article) => (
+            <a class="article-list-item reveal" href={articleHref(article)}>
+              <div class:list={["article-list-cover", { "has-cover": article.data.cover }]} aria-hidden={!article.data.cover}>
+                {article.data.cover ? (
+                  <Image
+                    src={article.data.cover}
+                    alt={article.data.coverAlt ?? ""}
+                    widths={[240, 420]}
+                    sizes="(max-width: 680px) 100vw, 210px"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Radio size={25} />
+                )}
+              </div>
+              <div class="article-list-copy">
+                <div class="article-list-meta">
+                  <time datetime={article.data.publishedAt.toISOString()}>{formatArticleDate(article.data.publishedAt)}</time>
+                  <span>{articleReadingMinutes(article.body)} min read</span>
+                </div>
+                <h3>{article.data.title}</h3>
+                <p>{article.data.description}</p>
+                <div class="article-tags">
+                  {article.data.tags.map((tag) => <span>{tag}</span>)}
+                </div>
+              </div>
+              <ArrowRight class="article-list-arrow" size={21} aria-hidden="true" />
+            </a>
+          ))}
         </div>
       </div>
-    </article>
-
+    )}
   </section>
 </BaseLayout>

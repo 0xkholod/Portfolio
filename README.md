@@ -19,3 +19,7 @@ pnpm build
 ```
 
 Astro writes the static site to `dist/`.
+
+## Articles
+
+The local Markdown and Obsidian publishing workflow is documented in [ARTICLE_WORKFLOW.md](./ARTICLE_WORKFLOW.md).

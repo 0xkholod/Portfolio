@@ -1,0 +1,120 @@
+---
+import type { GetStaticPaths } from "astro";
+import { ArrowLeft, ArrowRight, Clock3 } from "@lucide/astro";
+import { Image } from "astro:assets";
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import {
+  articleHref,
+  articleReadingMinutes,
+  articleSlug,
+  formatArticleDate,
+  sortArticles,
+  type ArticleEntry,
+} from "../../utils/articles";
+
+export const getStaticPaths = (async () => {
+  const articles = await getCollection("articles", ({ id, data }) => (
+    !id.startsWith("_templates/") && (import.meta.env.PROD ? !data.draft : true)
+  ));
+
+  return articles.map((article) => ({
+    params: { slug: articleSlug(article.id) },
+    props: { article },
+  }));
+}) satisfies GetStaticPaths;
+
+const { article } = Astro.props as { article: ArticleEntry };
+const { Content, headings } = await render(article);
+const articleHeadings = headings.filter(({ depth }) => depth === 2 || depth === 3);
+const allArticles = sortArticles(await getCollection("articles", ({ id, data }) => (
+  !id.startsWith("_templates/") && (import.meta.env.PROD ? !data.draft : true)
+)));
+const articleIndex = allArticles.findIndex(({ id }) => id === article.id);
+const newerArticle = articleIndex > 0 ? allArticles[articleIndex - 1] : undefined;
+const olderArticle = articleIndex >= 0 ? allArticles[articleIndex + 1] : undefined;
+const readingMinutes = articleReadingMinutes(article.body);
+---
+
+<BaseLayout
+  current="articles"
+  title={`${article.data.title} — 0xkholod`}
+  description={article.data.description}
+  image={article.data.cover?.src}
+  type="article"
+  publishedAt={article.data.publishedAt}
+  updatedAt={article.data.updatedAt}
+>
+  <article class="article-page shell">
+    <a class="article-back reveal" href="/articles"><ArrowLeft size={16} /> All articles</a>
+
+    {article.data.draft && (
+      <p class="article-draft-notice reveal">LOCAL DRAFT PREVIEW / This page will not exist in the production build.</p>
+    )}
+
+    <header class="article-header reveal">
+      <p class="kicker">TRANSMISSION / {articleSlug(article.id).toUpperCase()}</p>
+      <h1>{article.data.title}</h1>
+      <p class="article-deck">{article.data.description}</p>
+      <div class="article-byline">
+        <span>By <strong>0xkholod</strong></span>
+        <time datetime={article.data.publishedAt.toISOString()}>{formatArticleDate(article.data.publishedAt)}</time>
+        <span><Clock3 size={15} /> {readingMinutes} min read</span>
+        {article.data.updatedAt && (
+          <span>Updated <time datetime={article.data.updatedAt.toISOString()}>{formatArticleDate(article.data.updatedAt)}</time></span>
+        )}
+      </div>
+      {article.data.tags.length > 0 && (
+        <div class="article-tags article-header-tags" aria-label="Article tags">
+          {article.data.tags.map((tag) => <span>{tag}</span>)}
+        </div>
+      )}
+    </header>
+
+    {article.data.cover && (
+      <figure class="article-hero-media reveal">
+        <Image
+          src={article.data.cover}
+          alt={article.data.coverAlt ?? ""}
+          widths={[720, 1080, 1440]}
+          sizes="(max-width: 1100px) 92vw, 1120px"
+          loading="eager"
+        />
+        {article.data.coverAlt && <figcaption>{article.data.coverAlt}</figcaption>}
+      </figure>
+    )}
+
+    <div class:list={["article-reading-grid", { "without-toc": articleHeadings.length === 0 }]}>
+      {articleHeadings.length > 0 && (
+        <aside class="article-toc reveal" aria-label="Table of contents">
+          <span>ON THIS PAGE</span>
+          <nav>
+            {articleHeadings.map((heading) => (
+              <a class:list={{ nested: heading.depth === 3 }} href={`#${heading.slug}`}>{heading.text}</a>
+            ))}
+          </nav>
+        </aside>
+      )}
+      <div class="article-prose reveal">
+        <Content />
+      </div>
+    </div>
+
+    {(newerArticle || olderArticle) && (
+      <nav class="article-pagination reveal" aria-label="More articles">
+        {olderArticle ? (
+          <a href={articleHref(olderArticle)}>
+            <span><ArrowLeft size={15} /> Older transmission</span>
+            <strong>{olderArticle.data.title}</strong>
+          </a>
+        ) : <span></span>}
+        {newerArticle && (
+          <a class="next" href={articleHref(newerArticle)}>
+            <span>Newer transmission <ArrowRight size={15} /></span>
+            <strong>{newerArticle.data.title}</strong>
+          </a>
+        )}
+      </nav>
+    )}
+  </article>
+</BaseLayout>
