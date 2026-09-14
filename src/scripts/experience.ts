@@ -1,3 +1,23 @@
+let activeExperience = 0
+let activeController: AbortController | null = null
+
+const stopExperience = () => {
+  activeExperience += 1
+  activeController?.abort()
+  activeController = null
+  document.body.classList.remove("graph-expanded")
+}
+
+const initExperience = () => {
+stopExperience()
+const experienceId = activeExperience
+const controller = new AbortController()
+activeController = controller
+const lifecycleSignal = controller.signal
+const requestAnimationFrame = (callback: FrameRequestCallback) => window.requestAnimationFrame((now) => {
+  if (experienceId === activeExperience) callback(now)
+})
+
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 const revealElements = document.querySelectorAll<HTMLElement>(".reveal")
@@ -9,6 +29,7 @@ if (reducedMotion) {
     { threshold: 0.12 },
   )
   revealElements.forEach((element) => observer.observe(element))
+  lifecycleSignal.addEventListener("abort", () => observer.disconnect(), { once: true })
 }
 
 const cursorGlow = document.querySelector<HTMLElement>(".cursor-glow")
@@ -52,7 +73,7 @@ if (cursorGlow && !reducedMotion) {
     targetX = event.clientX
     targetY = event.clientY
     queueGlowFrame()
-  }, { passive: true })
+  }, { passive: true, signal: lifecycleSignal })
 }
 
 const headerBrand = document.querySelector<HTMLElement>(".brand")
@@ -75,7 +96,7 @@ if (headerBrand && headerSigil) {
       replaySigilHop()
     }
     const deactivateAlias = () => {
-      window.requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
         if (headerNav.matches(":hover") || headerNav.contains(document.activeElement)) return
         headerBrand.classList.remove("is-nav-active")
         replaySigilHop()
@@ -146,7 +167,7 @@ const initBrandLiquidBorder = () => {
     frame = requestAnimationFrame(draw)
   }
   const stop = () => {
-    window.requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
       const brandActive = brand.matches(":hover") || document.activeElement === brand
       const navActive = Boolean(nav?.matches(":hover") || nav?.contains(document.activeElement))
       if (brandActive || navActive) return
@@ -256,7 +277,7 @@ const initCursorTrail = () => {
     canvas.style.height = `${innerHeight}px`
   }
   resize()
-  window.addEventListener("resize", resize, { passive: true })
+  window.addEventListener("resize", resize, { passive: true, signal: lifecycleSignal })
 
   const draw = () => {
     const ratio = Math.min(devicePixelRatio, 1.7)
@@ -299,7 +320,7 @@ const initCursorTrail = () => {
     particles = particles.slice(-56)
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(draw)
-  }, { passive: true })
+  }, { passive: true, signal: lifecycleSignal })
 }
 
 document.querySelectorAll<HTMLElement>(".tilt-card, .badge-frame, .article-card").forEach((card) => {
@@ -322,7 +343,7 @@ const initAliasReconstruction = () => {
   const glyphs = "0123456789ABCDEF!@#$%&*+-=<>?/\\[]{}"
   type AliasParticle = {
     homeX:number; homeY:number; x:number; y:number; vx:number; vy:number;
-    phase:number; highlight:boolean; color:string; mass:number;
+    driftX:number; driftY:number; highlight:boolean; mass:number;
   }
   let particles: AliasParticle[] = []
   const context = canvas.getContext("2d")
@@ -332,6 +353,9 @@ const initAliasReconstruction = () => {
   let active = false
   let transitionProgress = 0
   let pointer = { x: 0, y: 0 }
+  let canvasBounds = canvas.getBoundingClientRect()
+  let ratio = 1
+  let textBounds = { left: 0, right: 1 }
 
   const scrambledText = (revealed = 0) => finalText.split("").map((character, index) => (
     index < revealed ? character : glyphs[Math.floor(Math.random() * glyphs.length)]
@@ -352,13 +376,26 @@ const initAliasReconstruction = () => {
     }, 34)
   }
   void document.fonts.ready.then(playInitialHexReveal).catch(playInitialHexReveal)
+  lifecycleSignal.addEventListener("abort", () => window.clearInterval(introTimer), { once: true })
+
+  const resizeCanvas = () => {
+    canvasBounds = canvas.getBoundingClientRect()
+    ratio = Math.min(devicePixelRatio || 1, 1.35)
+    const width = Math.max(1, Math.round(canvasBounds.width * ratio))
+    const height = Math.max(1, Math.round(canvasBounds.height * ratio))
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+  }
 
   const seedTextParticles = () => {
-    const canvasRect = canvas.getBoundingClientRect()
+    resizeCanvas()
     const targetRect = target.getBoundingClientRect()
     const scratch = document.createElement("canvas")
-    scratch.width = Math.max(1, Math.round(canvasRect.width))
-    scratch.height = Math.max(1, Math.round(canvasRect.height))
+    const padding = 6
+    scratch.width = Math.max(1, Math.ceil(targetRect.width + padding * 2))
+    scratch.height = Math.max(1, Math.ceil(targetRect.height + padding * 2))
     const scratchContext = scratch.getContext("2d")
     if (!scratchContext) return
     const computed = getComputedStyle(target)
@@ -366,104 +403,125 @@ const initAliasReconstruction = () => {
     ;(scratchContext as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = computed.letterSpacing
     scratchContext.textAlign = "center"
     scratchContext.textBaseline = "middle"
-    const centerX = targetRect.left - canvasRect.left + targetRect.width / 2
-    const centerY = targetRect.top - canvasRect.top + targetRect.height / 2
-    const textLeft = targetRect.left - canvasRect.left
-    const gradient = scratchContext.createLinearGradient(textLeft, centerY, textLeft + targetRect.width, centerY)
+    scratchContext.fillStyle = "#ffffff"
+    scratchContext.fillText(finalText, scratch.width / 2, scratch.height / 2)
+    const pixels = scratchContext.getImageData(0, 0, scratch.width, scratch.height).data
+    const points: Array<{x:number;y:number}> = []
+    for (let y = 0; y < scratch.height; y += 3) {
+      for (let x = 0; x < scratch.width; x += 3) {
+        const pixelIndex = (y * scratch.width + x) * 4
+        if (pixels[pixelIndex + 3] > 56) points.push({ x, y })
+      }
+    }
+    const maxParticles = 1400
+    const selectedPoints = points.length <= maxParticles
+      ? points
+      : Array.from({ length: maxParticles }, (_, index) => points[Math.floor(index * points.length / maxParticles)])
+    const offsetX = targetRect.left - canvasBounds.left - padding
+    const offsetY = targetRect.top - canvasBounds.top - padding
+    textBounds = { left: offsetX + padding, right: offsetX + padding + targetRect.width }
+    particles = selectedPoints.map((point, index) => {
+      const jitterX = (Math.random() - .5) * .8
+      const jitterY = (Math.random() - .5) * .8
+      const phase = Math.random() * Math.PI * 2
+      return {
+      homeX: offsetX + point.x + jitterX,
+      homeY: offsetY + point.y + jitterY,
+      x: offsetX + point.x + jitterX,
+      y: offsetY + point.y + jitterY,
+      vx: 0,
+      vy: 0,
+      driftX: Math.cos(phase),
+      driftY: Math.sin(phase),
+      highlight: index % 37 === 0,
+      mass: .72 + Math.random() * .56,
+    }})
+    pointer = {
+      x: targetRect.left - canvasBounds.left + targetRect.width / 2,
+      y: targetRect.top - canvasBounds.top + targetRect.height / 2,
+    }
+  }
+
+  const drawParticles = (now: number) => {
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    transitionProgress += ((active ? 1 : 0) - transitionProgress) * (active ? .055 : .075)
+    stage.style.setProperty("--particle-progress", transitionProgress.toFixed(3))
+    const gradient = context.createLinearGradient(textBounds.left, 0, textBounds.right, 0)
     gradient.addColorStop(0, "#ffffff")
     gradient.addColorStop(.08, "#ffffff")
     gradient.addColorStop(.43, "#ffb5e5")
     gradient.addColorStop(.88, "#7df4f3")
     gradient.addColorStop(1, "#7df4f3")
-    scratchContext.fillStyle = gradient
-    scratchContext.fillText(finalText, centerX, centerY)
-    const pixels = scratchContext.getImageData(0, 0, scratch.width, scratch.height).data
-    const points: Array<{x:number;y:number;color:string}> = []
-    for (let y = 0; y < scratch.height; y += 2) {
-      for (let x = 0; x < scratch.width; x += 2) {
-        const pixelIndex = (y * scratch.width + x) * 4
-        if (pixels[pixelIndex + 3] > 42) {
-          points.push({ x, y, color: `rgb(${pixels[pixelIndex]},${pixels[pixelIndex + 1]},${pixels[pixelIndex + 2]})` })
-        }
-      }
-    }
-    const maxParticles = 7200
-    const selectedPoints = points.length <= maxParticles
-      ? points
-      : Array.from({ length: maxParticles }, (_, index) => points[Math.floor(index * points.length / maxParticles)])
-    particles = selectedPoints.map((point, index) => {
-      const jitterX = (Math.random() - .5) * .72
-      const jitterY = (Math.random() - .5) * .72
-      return {
-      homeX: point.x + jitterX,
-      homeY: point.y + jitterY,
-      x: point.x + jitterX,
-      y: point.y + jitterY,
-      vx: 0,
-      vy: 0,
-      phase: Math.random() * Math.PI * 2,
-      highlight: index % 31 === 0,
-      color: point.color,
-      mass: .72 + Math.random() * .56,
-    }})
-    pointer = { x: centerX, y: centerY }
-  }
-
-  const drawParticles = () => {
-    const rect = canvas.getBoundingClientRect()
-    const ratio = Math.min(devicePixelRatio, 2)
-    if (canvas.width !== Math.round(rect.width * ratio) || canvas.height !== Math.round(rect.height * ratio)) {
-      canvas.width = Math.max(1, Math.round(rect.width * ratio))
-      canvas.height = Math.max(1, Math.round(rect.height * ratio))
-    }
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    transitionProgress += ((active ? 1 : 0) - transitionProgress) * (active ? .055 : .075)
-    stage.style.setProperty("--particle-progress", transitionProgress.toFixed(3))
     if (transitionProgress > .04) {
-      const anchorOpacity = Math.min(.14, transitionProgress * .17)
-      particles.forEach((particle) => {
-        context.globalAlpha = anchorOpacity
-        context.fillStyle = particle.color
-        context.beginPath()
-        context.arc(particle.homeX * ratio, particle.homeY * ratio, .43 * ratio, 0, Math.PI * 2)
-        context.fill()
-      })
+      context.globalAlpha = Math.min(.13, transitionProgress * .16)
+      context.fillStyle = gradient
+      context.beginPath()
+      for (let index = 0; index < particles.length; index += 2) {
+        const particle = particles[index]
+        context.moveTo(particle.homeX + .42, particle.homeY)
+        context.arc(particle.homeX, particle.homeY, .42, 0, Math.PI * 2)
+      }
+      context.fill()
     }
     let settled = 0
-    particles.forEach((particle) => {
+    const pulseX = Math.sin(now * .0031) * .005
+    const pulseY = Math.cos(now * .0027) * .005
+    for (const particle of particles) {
       if (active) {
         const dx = particle.x - pointer.x
         const dy = particle.y - pointer.y
-        const distance = Math.max(5, Math.hypot(dx, dy))
-        if (distance < 230) {
-          const influence = Math.exp(-(distance * distance) / (2 * 72 * 72))
-          const angle = Math.atan2(dy, dx) + Math.sin(particle.phase + performance.now() * .0017) * .24
-          const force = Math.pow(influence, 1.25) * .48 * particle.mass
-          const tangent = Math.sin(particle.phase * 1.7) * .075 * influence
-          particle.vx += Math.cos(angle) * force - Math.sin(angle) * tangent
-          particle.vy += Math.sin(angle) * force + Math.cos(angle) * tangent
+        const distanceSquared = dx * dx + dy * dy
+        if (distanceSquared < 52900) {
+          const distance = Math.max(5, Math.sqrt(distanceSquared))
+          const influence = 1 - distance / 230
+          const force = influence * influence * .55 * particle.mass
+          const tangent = influence * .065
+          const normalX = dx / distance
+          const normalY = dy / distance
+          particle.vx += normalX * force - normalY * tangent
+          particle.vy += normalY * force + normalX * tangent
         }
-        particle.vx += Math.sin(performance.now() / 235 + particle.phase) * .0045
-        particle.vy += Math.cos(performance.now() / 285 + particle.phase) * .004
+        particle.vx += particle.driftX * .004 + pulseX
+        particle.vy += particle.driftY * .004 + pulseY
         particle.vx += (particle.homeX - particle.x) * .032
         particle.vy += (particle.homeY - particle.y) * .032
       } else {
         particle.vx += (particle.homeX - particle.x) * .11
         particle.vy += (particle.homeY - particle.y) * .11
-        if (Math.hypot(particle.homeX - particle.x, particle.homeY - particle.y) < .45) settled += 1
+        const homeDx = particle.homeX - particle.x
+        const homeDy = particle.homeY - particle.y
+        if (homeDx * homeDx + homeDy * homeDy < .2) settled += 1
       }
       particle.x += particle.vx
       particle.y += particle.vy
       particle.vx *= active ? .86 : .7
       particle.vy *= active ? .86 : .7
-      context.globalAlpha = particle.highlight ? .98 : .88
-      context.fillStyle = particle.color
-      context.shadowBlur = (particle.highlight ? 7 : 4) * ratio
-      context.shadowColor = particle.color
-      context.beginPath()
-      context.arc(particle.x * ratio, particle.y * ratio, (particle.highlight ? .96 : .68) * ratio, 0, Math.PI * 2)
-      context.fill()
-    })
+    }
+
+    context.globalAlpha = .9
+    context.fillStyle = gradient
+    context.shadowBlur = 0
+    context.beginPath()
+    for (const particle of particles) {
+      if (particle.highlight) continue
+      context.moveTo(particle.x + .67, particle.y)
+      context.arc(particle.x, particle.y, .67, 0, Math.PI * 2)
+    }
+    context.fill()
+
+    context.globalAlpha = .98
+    context.fillStyle = "#9af8ff"
+    context.shadowBlur = 7
+    context.shadowColor = "rgba(121,239,242,.72)"
+    context.beginPath()
+    for (const particle of particles) {
+      if (!particle.highlight) continue
+      context.moveTo(particle.x + .95, particle.y)
+      context.arc(particle.x, particle.y, .95, 0, Math.PI * 2)
+    }
+    context.fill()
     context.globalAlpha = 1
     context.shadowBlur = 0
     if (!active && settled >= particles.length * .96 && transitionProgress < .025) {
@@ -484,8 +542,7 @@ const initAliasReconstruction = () => {
     active = true
     stage.classList.add("is-particles")
     seedTextParticles()
-    const rect = canvas.getBoundingClientRect()
-    pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    pointer = { x: event.clientX - canvasBounds.left, y: event.clientY - canvasBounds.top }
     cancelAnimationFrame(animationFrame)
     animationFrame = requestAnimationFrame(drawParticles)
   }
@@ -502,8 +559,7 @@ const initAliasReconstruction = () => {
 
   stage.addEventListener("pointerenter", activateParticles)
   stage.addEventListener("pointermove", (event) => {
-    const rect = canvas.getBoundingClientRect()
-    pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    pointer = { x: event.clientX - canvasBounds.left, y: event.clientY - canvasBounds.top }
   }, { passive: true })
   stage.addEventListener("pointerleave", reconstruct)
 }
@@ -634,10 +690,11 @@ const initKnowledgeMap = async () => {
   let raw: Record<string, {slug?:string; title?:string; links?:string[]; tags?:string[]}> = {}
   try {
     const source = location.hostname === "localhost" || location.hostname === "127.0.0.1" ? "/manual-index" : wrapper.dataset.source!
-    const response = await fetch(source)
+    const response = await fetch(source, { signal: lifecycleSignal })
     if (!response.ok) throw new Error(String(response.status))
     raw = await response.json()
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return
     const fallback = ["001-scripting/bash","001-scripting/python","002-pentesting/active-directory","002-pentesting/web-pentesting","002-pentesting/linux-pentesting","002-pentesting/windows-pentesting","002-pentesting/protocols-and-services","002-pentesting/osint","003-setup","root"]
     raw = Object.fromEntries(fallback.map((slug, index) => [slug, { slug, title: slug.split("/").pop()!.replaceAll("-", " ").toUpperCase(), links: [fallback[(index + 1) % fallback.length]] }]))
     status.innerHTML = "<i></i> GRAPH PREVIEW"
@@ -734,7 +791,7 @@ const initKnowledgeMap = async () => {
   modalScrim.addEventListener("click", () => setExpanded(false))
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && wrapper.classList.contains("is-expanded")) setExpanded(false)
-  })
+  }, { signal: lifecycleSignal })
 
   const nodeAt = (x: number, y: number) => {
     let match: ManualNode | null = null
@@ -1136,33 +1193,6 @@ const initDialogs = () => {
   })
 }
 
-const initPageTransitions = () => {
-  const root = document.documentElement
-  const supportsNativeCrossDocumentTransitions = "onpageswap" in window
-
-  window.addEventListener("pageshow", () => root.classList.remove("is-page-leaving"))
-  if (reducedMotion || supportsNativeCrossDocumentTransitions) return
-
-  let navigating = false
-  document.addEventListener("click", (event) => {
-    if (navigating || event.defaultPrevented || event.button !== 0) return
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-
-    const origin = event.target instanceof Element ? event.target : null
-    const link = origin?.closest<HTMLAnchorElement>("a[href]")
-    if (!link || link.target === "_blank" || link.hasAttribute("download")) return
-
-    const destination = new URL(link.href, location.href)
-    if (destination.origin !== location.origin) return
-    if (destination.pathname === location.pathname && destination.search === location.search) return
-
-    event.preventDefault()
-    navigating = true
-    root.classList.add("is-page-leaving")
-    window.setTimeout(() => location.assign(destination.href), 270)
-  })
-}
-
 initCursorTrail()
 initBrandLiquidBorder()
 initPortraitLiquidBorder()
@@ -1172,4 +1202,18 @@ initKnowledgeMap()
 initTimelineMotion()
 initCertificateMotion()
 initDialogs()
-initPageTransitions()
+}
+
+const startExperience = () => {
+  if (document.body.dataset.experienceReady === "true") return
+  document.body.dataset.experienceReady = "true"
+  initExperience()
+}
+
+document.addEventListener("astro:before-swap", stopExperience)
+document.addEventListener("astro:page-load", startExperience)
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startExperience, { once: true })
+} else {
+  startExperience()
+}

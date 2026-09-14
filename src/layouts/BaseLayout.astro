@@ -2,6 +2,7 @@
 import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/jetbrains-mono";
 import "../styles/global.css";
+import { ClientRouter, fade } from "astro:transitions";
 import SiteHeader from "../components/SiteHeader.astro";
 import BrandIcon from "../components/BrandIcon.astro";
 
@@ -18,14 +19,12 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const quickFade = fade({ duration: "0.16s" });
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class="site-booting" transition:animate={quickFade}>
   <head>
-    <script is:inline>
-      document.documentElement.classList.add("site-booting");
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
@@ -34,6 +33,23 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
     <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    <style is:inline>
+      html.site-booting body { visibility: hidden; opacity: 0; }
+    </style>
+    <ClientRouter fallback="animate" />
+    <script is:inline>
+      const revealPage = () => {
+        document.documentElement.classList.remove("site-booting");
+        document.documentElement.classList.add("site-ready");
+      };
+
+      document.addEventListener("astro:after-swap", revealPage);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", revealPage, { once: true });
+      } else {
+        revealPage();
+      }
+    </script>
   </head>
   <body data-page={current}>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -52,17 +68,5 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
       </div>
     </footer>
     <script src="../scripts/experience.ts"></script>
-    <script is:inline>
-      const revealSite = () => requestAnimationFrame(() => {
-        document.documentElement.classList.remove("site-booting");
-        document.documentElement.classList.add("site-ready");
-      });
-
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", revealSite, { once: true });
-      } else {
-        revealSite();
-      }
-    </script>
   </body>
 </html>
