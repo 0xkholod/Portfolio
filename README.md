@@ -1,4 +1,4 @@
-# 0xkholod Portfolio
+# 0xkholod Portfolio 🖋️
 
 Personal portfolio for systems administration, offensive security, certifications, and technical writing.
 
