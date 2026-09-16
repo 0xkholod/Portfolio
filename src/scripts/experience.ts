@@ -29,8 +29,31 @@ const constrainedDevice = Boolean(
   || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
   || (navigatorWithHints.deviceMemory && navigatorWithHints.deviceMemory <= 4),
 )
+let performanceLite = constrainedDevice || document.documentElement.classList.contains("performance-lite")
+const enablePerformanceLite = () => {
+  performanceLite = true
+  document.documentElement.classList.add("performance-lite")
+}
+if (performanceLite) enablePerformanceLite()
+else {
+  const frameDurations: number[] = []
+  let previousFrame = performance.now()
+  const sampleFrame = (now: number) => {
+    frameDurations.push(now - previousFrame)
+    previousFrame = now
+    if (frameDurations.length < 18) {
+      requestAnimationFrame(sampleFrame)
+      return
+    }
+    const measured = frameDurations.slice(3)
+    const average = measured.reduce((sum, duration) => sum + duration, 0) / measured.length
+    const slowFrames = measured.filter((duration) => duration > 28).length
+    if (average > 21 || slowFrames >= 3) enablePerformanceLite()
+  }
+  requestAnimationFrame(sampleFrame)
+}
 const canvasRatio = (regular = 1.5, constrained = 1.15) => (
-  Math.min(devicePixelRatio || 1, constrainedDevice ? constrained : regular)
+  Math.min(devicePixelRatio || 1, performanceLite ? constrained : regular)
 )
 
 const revealElements = document.querySelectorAll<HTMLElement>(".reveal")
@@ -46,7 +69,7 @@ if (reducedMotion) {
 }
 
 const cursorGlow = document.querySelector<HTMLElement>(".cursor-glow")
-if (cursorGlow && !reducedMotion) {
+if (cursorGlow && !reducedMotion && !performanceLite) {
   let targetX = innerWidth / 2
   let targetY = innerHeight / 2
   let currentX = targetX
@@ -83,6 +106,7 @@ if (cursorGlow && !reducedMotion) {
 
   paintGlow()
   window.addEventListener("pointermove", (event) => {
+    if (performanceLite) return
     targetX = event.clientX
     targetY = event.clientY
     queueGlowFrame()
@@ -133,7 +157,7 @@ const initBrandLiquidBorder = () => {
 
   const draw = (now: number) => {
     const rect = brand.getBoundingClientRect()
-    const ratio = Math.min(devicePixelRatio, 2)
+    const ratio = canvasRatio(1.5, 1.1)
     const width = Math.max(1, Math.round(rect.width * ratio))
     const height = Math.max(1, Math.round(rect.height * ratio))
     if (canvas.width !== width || canvas.height !== height) {
@@ -222,8 +246,8 @@ const initPortraitLiquidBorder = () => {
     context.clearRect(0, 0, width, height)
     if (!active) return
 
-    const margin = 3.5 * ratio
-    const radius = 24 * ratio
+    const margin = 1.8 * ratio
+    const radius = 26 * ratio
     const phase = now / 620
     const wave = (position: number, axis: number) => (
       Math.sin(position / (72 * ratio) + phase + axis) * 1.55
@@ -241,11 +265,11 @@ const initPortraitLiquidBorder = () => {
     for (let y = height - margin - radius; y >= margin + radius; y -= 12 * ratio) context.lineTo(margin + wave(y, 3), y)
     context.quadraticCurveTo(margin, margin, margin + radius, margin + wave(margin + radius, 0))
     context.closePath()
-    context.strokeStyle = "rgba(105,231,248,.78)"
-    context.lineWidth = 1.15 * ratio
+    context.strokeStyle = "rgba(143,45,113,.98)"
+    context.lineWidth = 1.7 * ratio
     context.lineJoin = "round"
-    context.shadowBlur = 7 * ratio
-    context.shadowColor = "rgba(76,208,237,.46)"
+    context.shadowBlur = 8 * ratio
+    context.shadowColor = "rgba(118,30,91,.58)"
     context.stroke()
     context.shadowBlur = 0
     frame = requestAnimationFrame(draw)
@@ -273,7 +297,7 @@ const initPortraitLiquidBorder = () => {
 
 const initCursorTrail = () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#cursor-trail")
-  if (!canvas || reducedMotion || window.matchMedia("(hover: none)").matches) return
+  if (!canvas || reducedMotion || performanceLite || window.matchMedia("(hover: none)").matches) return
   const context = canvas.getContext("2d")
   if (!context) return
   type TrailParticle = { x:number; y:number; vx:number; vy:number; life:number; size:number; pink:boolean }
@@ -316,6 +340,7 @@ const initCursorTrail = () => {
   }
 
   window.addEventListener("pointermove", (event) => {
+    if (performanceLite) return
     if (Math.hypot(event.clientX - lastX, event.clientY - lastY) < 6) return
     lastX = event.clientX
     lastY = event.clientY
@@ -351,6 +376,7 @@ const initAliasReconstruction = () => {
   const target = document.querySelector<HTMLElement>("[data-scramble]")
   const canvas = document.querySelector<HTMLCanvasElement>("#alias-particles")
   const stage = target?.closest<HTMLElement>(".alias-stage")
+  const introText = stage?.querySelector<HTMLElement>(".alias-scramble")
   if (!target || !canvas || !stage || reducedMotion) return
   const finalText = target.dataset.scramble ?? target.textContent ?? ""
   const glyphs = "0123456789ABCDEF!@#$%&*+-=<>?/\\[]{}"
@@ -363,6 +389,7 @@ const initAliasReconstruction = () => {
   if (!context) return
   let animationFrame = 0
   let introTimer = 0
+  let introCleanupTimer = 0
   let active = false
   let transitionProgress = 0
   let pointer = { x: 0, y: 0 }
@@ -378,21 +405,40 @@ const initAliasReconstruction = () => {
     const stableBounds = target.getBoundingClientRect()
     target.style.width = `${Math.ceil(stableBounds.width)}px`
     target.style.minHeight = `${Math.ceil(stableBounds.height)}px`
+    const stableMobileIntro = coarsePointer && Boolean(introText)
     const startedAt = performance.now()
     const duration = 1080
     const revealDelay = .22
-    target.textContent = scrambledText(0)
+    if (stableMobileIntro) {
+      stage.classList.add("is-intro")
+      introText!.textContent = scrambledText(0)
+    } else {
+      target.textContent = scrambledText(0)
+    }
     window.clearInterval(introTimer)
     introTimer = window.setInterval(() => {
       const progress = Math.min(1, (performance.now() - startedAt) / duration)
       const revealProgress = Math.max(0, (progress - revealDelay) / (1 - revealDelay))
       const revealed = Math.min(finalText.length, Math.floor(revealProgress * (finalText.length + 1)))
-      target.textContent = progress >= 1 ? finalText : scrambledText(revealed)
-      if (progress >= 1) window.clearInterval(introTimer)
+      const nextText = progress >= 1 ? finalText : scrambledText(revealed)
+      if (stableMobileIntro) introText!.textContent = nextText
+      else target.textContent = nextText
+      if (progress >= 1) {
+        window.clearInterval(introTimer)
+        target.textContent = finalText
+        if (stableMobileIntro) {
+          stage.classList.remove("is-intro")
+          window.clearTimeout(introCleanupTimer)
+          introCleanupTimer = window.setTimeout(() => { introText!.textContent = "" }, 220)
+        }
+      }
     }, 34)
   }
   void document.fonts.ready.then(playInitialHexReveal).catch(playInitialHexReveal)
-  lifecycleSignal.addEventListener("abort", () => window.clearInterval(introTimer), { once: true })
+  lifecycleSignal.addEventListener("abort", () => {
+    window.clearInterval(introTimer)
+    window.clearTimeout(introCleanupTimer)
+  }, { once: true })
 
   const resizeCanvas = () => {
     canvasBounds = canvas.getBoundingClientRect()
@@ -554,6 +600,9 @@ const initAliasReconstruction = () => {
   const activateParticles = (event: PointerEvent) => {
     if (active) return
     window.clearInterval(introTimer)
+    window.clearTimeout(introCleanupTimer)
+    stage.classList.remove("is-intro")
+    if (introText) introText.textContent = ""
     target.textContent = finalText
     active = true
     stage.classList.add("is-particles")
@@ -616,25 +665,31 @@ const initSnowflake = () => {
   }
 
   let pointer = { x: 0, y: 0, active: false }
+  let canvasBounds = canvas.getBoundingClientRect()
+  const updateCanvasBounds = () => { canvasBounds = canvas.getBoundingClientRect() }
+  const resizeObserver = new ResizeObserver(updateCanvasBounds)
+  resizeObserver.observe(canvas)
+  canvas.addEventListener("pointerenter", updateCanvasBounds, { passive: true, signal: lifecycleSignal })
   canvas.addEventListener("pointermove", (event) => {
-    const rect = canvas.getBoundingClientRect()
-    pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top, active: true }
-  }, { passive: true })
-  canvas.addEventListener("pointerleave", () => { pointer.active = false })
+    pointer = { x: event.clientX - canvasBounds.left, y: event.clientY - canvasBounds.top, active: true }
+  }, { passive: true, signal: lifecycleSignal })
+  canvas.addEventListener("pointerleave", () => { pointer.active = false }, { signal: lifecycleSignal })
 
   const start = performance.now()
   let visible = false
   let frame = 0
   let lastFrame = 0
+  const snowColors = ["#c9fbff", "#8c9dff", "#67e8ff"]
+  const snowAlphaLevels = [.58, .7, .82, .94]
   const render = (now: number) => {
     if (!visible || document.hidden) return
-    const frameInterval = constrainedDevice ? 50 : 1000 / 30
+    const frameInterval = pointer.active ? 15 : performanceLite ? 45 : 30
     if (!reducedMotion && now - lastFrame < frameInterval) {
       frame = requestAnimationFrame(render)
       return
     }
     lastFrame = now
-    const rect = canvas.getBoundingClientRect()
+    const rect = canvasBounds
     const ratio = canvasRatio(1.4, 1.1)
     const width = Math.max(1, Math.round(rect.width * ratio))
     const height = Math.max(1, Math.round(rect.height * ratio))
@@ -647,6 +702,7 @@ const initSnowflake = () => {
     const cosY = Math.cos(tiltY), sinY = Math.sin(tiltY)
     const centerX = rect.width / 2, centerY = rect.height / 2
 
+    const paths = Array.from({ length: snowColors.length * snowAlphaLevels.length }, () => new Path2D())
     particles.forEach((particle, index) => {
       const jitter = reducedMotion ? 0 : Math.sin(t * 1.7 + particle.phase) * .006
       const baseX = particle.bx * cosZ - particle.by * sinZ
@@ -679,13 +735,22 @@ const initSnowflake = () => {
 
       const depthAlpha = .52 + (targetZ + 1) * .2
       const size = (index % 17 === 0 ? 2.2 : 1.15 + perspective * .35) * ratio
-      context.globalAlpha = Math.min(1, depthAlpha)
-      context.fillStyle = index % 11 === 0 ? "#c9fbff" : index % 5 === 0 ? "#8c9dff" : "#67e8ff"
-      context.shadowBlur = (index % 11 === 0 ? 14 : 8) * ratio
+      const colorIndex = index % 11 === 0 ? 0 : index % 5 === 0 ? 1 : 2
+      const alphaIndex = Math.max(0, Math.min(snowAlphaLevels.length - 1, Math.round((Math.min(1, depthAlpha) - .58) / .12)))
+      const path = paths[colorIndex * snowAlphaLevels.length + alphaIndex]
+      const x = screenX * ratio
+      const y = screenY * ratio
+      path.moveTo(x + size, y)
+      path.arc(x, y, size, 0, Math.PI * 2)
+    })
+    snowColors.forEach((color, colorIndex) => {
+      context.fillStyle = color
+      context.shadowBlur = (colorIndex === 0 ? 14 : 8) * ratio
       context.shadowColor = "#33ccff"
-      context.beginPath()
-      context.arc(screenX * ratio, screenY * ratio, size, 0, Math.PI * 2)
-      context.fill()
+      snowAlphaLevels.forEach((alpha, alphaIndex) => {
+        context.globalAlpha = alpha
+        context.fill(paths[colorIndex * snowAlphaLevels.length + alphaIndex])
+      })
     })
     context.globalAlpha = 1
     context.shadowBlur = 0
@@ -707,6 +772,7 @@ const initSnowflake = () => {
   lifecycleSignal.addEventListener("abort", () => {
     cancelAnimationFrame(frame)
     visibilityObserver.disconnect()
+    resizeObserver.disconnect()
   }, { once: true })
 }
 
@@ -730,6 +796,20 @@ const initKnowledgeMap = async () => {
   const context = canvas.getContext("2d")
   const liquidBorderContext = liquidBorderCanvas.getContext("2d")
   if (!context || !liquidBorderContext) return
+
+  await new Promise<void>((resolve) => {
+    const loadObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      loadObserver.disconnect()
+      resolve()
+    }, { rootMargin: "320px 0px", threshold: 0 })
+    loadObserver.observe(wrapper)
+    lifecycleSignal.addEventListener("abort", () => {
+      loadObserver.disconnect()
+      resolve()
+    }, { once: true })
+  })
+  if (lifecycleSignal.aborted) return
 
   let raw: Record<string, {slug?:string; title?:string; links?:string[]; tags?:string[]}> = {}
   try {
@@ -790,6 +870,7 @@ const initKnowledgeMap = async () => {
   let pointer = { x: 0, y: 0, active: false, inside: false }
   let hovered: ManualNode | null = null
   let screenPositions = new Map<ManualNode, {x:number;y:number}>()
+  let scheduleGraphRender = () => {}
   const view = { x: 0, y: 0, zoom: 1 }
   const drag: {
     active:boolean; moved:boolean; mode:"pan"|"node"|null; node:ManualNode|null;
@@ -830,6 +911,7 @@ const initKnowledgeMap = async () => {
       wrapper.removeAttribute("aria-modal")
       wrapper.removeAttribute("aria-label")
     }
+    requestAnimationFrame(scheduleGraphRender)
   }
   expandButton.addEventListener("click", () => setExpanded(!wrapper.classList.contains("is-expanded")))
   modalScrim.addEventListener("click", () => setExpanded(false))
@@ -850,6 +932,7 @@ const initKnowledgeMap = async () => {
     const rect = canvas.getBoundingClientRect()
     pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top, active: true, inside: true }
     wrapper.classList.add("is-water-active")
+    scheduleGraphRender()
   })
   canvas.addEventListener("pointermove", (event) => {
     const rect = canvas.getBoundingClientRect()
@@ -881,6 +964,7 @@ const initKnowledgeMap = async () => {
       drag.lastY = event.clientY
       drag.lastTime = event.timeStamp
     }
+    scheduleGraphRender()
   }, { passive: true })
   canvas.addEventListener("pointerdown", (event) => {
     const rect = canvas.getBoundingClientRect()
@@ -905,6 +989,7 @@ const initKnowledgeMap = async () => {
     }
     canvas.setPointerCapture(event.pointerId)
     canvas.style.cursor = "grabbing"
+    scheduleGraphRender()
   })
   canvas.addEventListener("pointerup", (event) => {
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
@@ -916,8 +1001,9 @@ const initKnowledgeMap = async () => {
     dragInfluence.clear()
     canvas.style.cursor = hovered ? "pointer" : "grab"
     if (!moved && clickedNode) window.open(`https://docs.0xkholod.com/${clickedNode.slug}`, "_blank", "noopener")
+    scheduleGraphRender()
   })
-  canvas.addEventListener("pointercancel", () => { drag.active = false; drag.mode = null; drag.node = null; dragInfluence.clear(); canvas.style.cursor = "grab" })
+  canvas.addEventListener("pointercancel", () => { drag.active = false; drag.mode = null; drag.node = null; dragInfluence.clear(); canvas.style.cursor = "grab"; scheduleGraphRender() })
   canvas.addEventListener("pointerleave", () => {
     if (!drag.active) {
       pointer = { ...pointer, active: false, inside: false }
@@ -926,6 +1012,7 @@ const initKnowledgeMap = async () => {
       wrapper.classList.remove("is-water-active")
     }
     canvas.style.cursor = drag.active ? "grabbing" : "grab"
+    scheduleGraphRender()
   })
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault()
@@ -939,6 +1026,7 @@ const initKnowledgeMap = async () => {
     view.y = y - rect.height / 2 - worldY * nextZoom
     view.zoom = nextZoom
     wrapper.classList.add("has-moved")
+    scheduleGraphRender()
   }, { passive: false })
 
   const simulateGraph = () => {
@@ -1013,19 +1101,23 @@ const initKnowledgeMap = async () => {
   let focusProgress = 0
   let visible = false
   let frame = 0
+  let expensiveFrames = 0
+  let settleFrames = performanceLite ? 0 : 18
   const render = (now: number) => {
+    frame = 0
     if (!visible || document.hidden) return
-    const frameInterval = constrainedDevice ? 50 : 1000 / 30
+    const frameInterval = performanceLite ? 66 : 40
     if (now - lastFrame < frameInterval) { frame = requestAnimationFrame(render); return }
     lastFrame = now
+    const renderStartedAt = performance.now()
     const rect = canvas.getBoundingClientRect()
     const ratio = canvasRatio(1.4, 1.1)
     const width = Math.max(1, Math.round(rect.width * ratio)), height = Math.max(1, Math.round(rect.height * ratio))
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
     context.clearRect(0, 0, width, height)
     drawLiquidBorder(now, rect, ratio)
-    simulateGraph()
-    const wobble = reducedMotion ? 0 : Math.sin(now / 5000) * .0012
+    if (!performanceLite || drag.active) simulateGraph()
+    const wobble = reducedMotion || performanceLite ? 0 : Math.sin(now / 5000) * .0012
     const visualScale = Math.min(2.55, Math.max(.78, Math.pow(view.zoom, .72)))
     const point = (node: ManualNode) => ({
       x: width / 2 + (node.x - .5 + Math.sin(hashNumber(node.slug) + now / 5000) * wobble) * width * view.zoom + view.x * ratio,
@@ -1050,16 +1142,28 @@ const initKnowledgeMap = async () => {
       : new Set<ManualNode>()
 
     context.lineCap = "round"
+    const regularLinks = new Path2D()
+    const highlightedLinks = new Path2D()
     links.forEach(([from, to]) => {
       const a = positionLookup.get(from)!, b = positionLookup.get(to)!
       const isRelated = Boolean(hoveredNode && (from === hoveredNode || to === hoveredNode))
-      context.globalAlpha = hoveredNode && !isRelated ? 1 - focusProgress * .94 : 1
-      context.strokeStyle = isRelated ? "rgba(121,239,242,.94)" : "rgba(186,157,255,.34)"
-      context.lineWidth = (isRelated ? 1.28 : .72) * ratio * visualScale
-      context.shadowBlur = isRelated ? 5 * ratio : 0
-      context.shadowColor = "rgba(121,239,242,.7)"
-      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke()
+      const path = isRelated ? highlightedLinks : regularLinks
+      path.moveTo(a.x, a.y)
+      path.lineTo(b.x, b.y)
     })
+    context.globalAlpha = hoveredNode ? 1 - focusProgress * .94 : 1
+    context.strokeStyle = "rgba(186,157,255,.34)"
+    context.lineWidth = .72 * ratio * visualScale
+    context.shadowBlur = 0
+    context.stroke(regularLinks)
+    if (hoveredNode) {
+      context.globalAlpha = 1
+      context.strokeStyle = "rgba(121,239,242,.94)"
+      context.lineWidth = 1.28 * ratio * visualScale
+      context.shadowBlur = performanceLite ? 0 : 5 * ratio
+      context.shadowColor = "rgba(121,239,242,.7)"
+      context.stroke(highlightedLinks)
+    }
     context.globalAlpha = 1
     context.shadowBlur = 0
 
@@ -1071,7 +1175,7 @@ const initKnowledgeMap = async () => {
       context.globalAlpha = normalAlpha + (focusedAlpha - normalAlpha) * focusProgress
       context.fillStyle = selected ? "#ffffff" : related ? "#c7fbff" : index % 13 === 0 ? "#ff7bd0" : "#b4f5fb"
       const shadow = selected ? 12 : related ? 7 : node.size > 2.5 ? 3.8 : 1.4
-      context.shadowBlur = shadow * ratio * Math.min(1.45, visualScale)
+      context.shadowBlur = performanceLite ? 0 : shadow * ratio * Math.min(1.45, visualScale)
       context.shadowColor = selected ? "#ff4fc1" : "#67e8ff"
       const focusScale = selected ? 1.55 : related ? 1.3 : hoveredNode ? .88 : 1
       context.beginPath(); context.arc(p.x, p.y, node.size * ratio * visualScale * focusScale, 0, Math.PI * 2); context.fill()
@@ -1134,24 +1238,34 @@ const initKnowledgeMap = async () => {
       if (!drag.active) canvas.style.cursor = "grab"
       tooltip.hidden = true
     }
-    frame = requestAnimationFrame(render)
+    const renderCost = performance.now() - renderStartedAt
+    expensiveFrames = renderCost > 22 ? expensiveFrames + 1 : Math.max(0, expensiveFrames - 1)
+    if (expensiveFrames >= 3) enablePerformanceLite()
+    if (settleFrames > 0) settleFrames -= 1
+    if (pointer.inside || drag.active || settleFrames > 0) frame = requestAnimationFrame(render)
   }
 
-  const startRendering = () => {
+  scheduleGraphRender = () => {
     if (!visible || document.hidden) return
-    cancelAnimationFrame(frame)
+    if (frame) return
     frame = requestAnimationFrame(render)
   }
   const visibilityObserver = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting
-    if (visible) startRendering()
-    else cancelAnimationFrame(frame)
+    if (visible) scheduleGraphRender()
+    else {
+      cancelAnimationFrame(frame)
+      frame = 0
+    }
   }, { rootMargin: "160px 0px", threshold: 0 })
   visibilityObserver.observe(wrapper)
-  document.addEventListener("visibilitychange", startRendering, { signal: lifecycleSignal })
+  const resizeObserver = new ResizeObserver(scheduleGraphRender)
+  resizeObserver.observe(wrapper)
+  document.addEventListener("visibilitychange", scheduleGraphRender, { signal: lifecycleSignal })
   lifecycleSignal.addEventListener("abort", () => {
     cancelAnimationFrame(frame)
     visibilityObserver.disconnect()
+    resizeObserver.disconnect()
   }, { once: true })
 }
 

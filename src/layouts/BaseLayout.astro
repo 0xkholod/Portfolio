@@ -35,7 +35,7 @@ const quickFade = fade({ duration: "0.16s" });
 <html lang="en" class="site-booting" transition:animate={quickFade}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL} />
     <meta property="og:type" content={type} />
@@ -63,11 +63,18 @@ const quickFade = fade({ duration: "0.16s" });
         document.documentElement.classList.add("site-ready");
       };
 
+      const revealInitialPage = () => {
+        const touchLayout = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+        const fontsReady = touchLayout && document.fonts ? document.fonts.ready : Promise.resolve();
+        const fallback = new Promise((resolve) => window.setTimeout(resolve, 900));
+        Promise.race([fontsReady, fallback]).then(() => window.requestAnimationFrame(revealPage));
+      };
+
       document.addEventListener("astro:after-swap", revealPage);
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", revealPage, { once: true });
+        document.addEventListener("DOMContentLoaded", revealInitialPage, { once: true });
       } else {
-        revealPage();
+        revealInitialPage();
       }
     </script>
   </head>
