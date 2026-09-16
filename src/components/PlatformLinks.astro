@@ -18,10 +18,10 @@ const { compact = false } = Astro.props;
     <BrandIcon name="monkeytype" />
     <span><b>Monkeytype</b><small>Typing profile</small></span>
   </a>
-  <span class="platform linkedin is-disabled" aria-disabled="true" title="Profile coming soon">
+  <a class="platform linkedin" href="https://www.linkedin.com/in/alejandro-gomez-kholodilov" target="_blank" rel="noreferrer">
     <BrandIcon name="linkedin" />
-    <span><b>LinkedIn</b><small>Coming soon</small></span>
-  </span>
+    <span><b>LinkedIn</b><small>Professional profile</small></span>
+  </a>
   {!compact && (
     <span class="platform youtube is-disabled" aria-disabled="true" title="Channel coming soon">
       <BrandIcon name="youtube" size={23} />

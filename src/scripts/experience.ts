@@ -19,6 +19,19 @@ const requestAnimationFrame = (callback: FrameRequestCallback) => window.request
 })
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+const coarsePointer = window.matchMedia("(hover: none), (pointer: coarse)").matches
+const navigatorWithHints = navigator as Navigator & {
+  deviceMemory?: number
+  connection?: { saveData?: boolean }
+}
+const constrainedDevice = Boolean(
+  navigatorWithHints.connection?.saveData
+  || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+  || (navigatorWithHints.deviceMemory && navigatorWithHints.deviceMemory <= 4),
+)
+const canvasRatio = (regular = 1.5, constrained = 1.15) => (
+  Math.min(devicePixelRatio || 1, constrainedDevice ? constrained : regular)
+)
 
 const revealElements = document.querySelectorAll<HTMLElement>(".reveal")
 if (reducedMotion) {
@@ -270,7 +283,7 @@ const initCursorTrail = () => {
   let frame = 0
 
   const resize = () => {
-    const ratio = Math.min(devicePixelRatio, 1.7)
+    const ratio = canvasRatio(1.25, 1)
     canvas.width = Math.round(innerWidth * ratio)
     canvas.height = Math.round(innerHeight * ratio)
     canvas.style.width = `${innerWidth}px`
@@ -280,7 +293,7 @@ const initCursorTrail = () => {
   window.addEventListener("resize", resize, { passive: true, signal: lifecycleSignal })
 
   const draw = () => {
-    const ratio = Math.min(devicePixelRatio, 1.7)
+    const ratio = canvasRatio(1.25, 1)
     context.clearRect(0, 0, canvas.width, canvas.height)
     particles.forEach((particle) => {
       particle.x += particle.vx
@@ -306,7 +319,7 @@ const initCursorTrail = () => {
     if (Math.hypot(event.clientX - lastX, event.clientY - lastY) < 6) return
     lastX = event.clientX
     lastY = event.clientY
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < 2; index += 1) {
       particles.push({
         x: event.clientX + (Math.random() - .5) * 5,
         y: event.clientY + (Math.random() - .5) * 5,
@@ -317,7 +330,7 @@ const initCursorTrail = () => {
         pink: Math.random() > .86,
       })
     }
-    particles = particles.slice(-56)
+    particles = particles.slice(-36)
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(draw)
   }, { passive: true, signal: lifecycleSignal })
@@ -362,6 +375,9 @@ const initAliasReconstruction = () => {
   )).join("")
 
   const playInitialHexReveal = () => {
+    const stableBounds = target.getBoundingClientRect()
+    target.style.width = `${Math.ceil(stableBounds.width)}px`
+    target.style.minHeight = `${Math.ceil(stableBounds.height)}px`
     const startedAt = performance.now()
     const duration = 1080
     const revealDelay = .22
@@ -557,11 +573,13 @@ const initAliasReconstruction = () => {
     }
   }
 
-  stage.addEventListener("pointerenter", activateParticles)
-  stage.addEventListener("pointermove", (event) => {
-    pointer = { x: event.clientX - canvasBounds.left, y: event.clientY - canvasBounds.top }
-  }, { passive: true })
-  stage.addEventListener("pointerleave", reconstruct)
+  if (!coarsePointer) {
+    stage.addEventListener("pointerenter", activateParticles, { signal: lifecycleSignal })
+    stage.addEventListener("pointermove", (event) => {
+      pointer = { x: event.clientX - canvasBounds.left, y: event.clientY - canvasBounds.top }
+    }, { passive: true, signal: lifecycleSignal })
+    stage.addEventListener("pointerleave", reconstruct, { signal: lifecycleSignal })
+  }
 }
 
 type SnowParticle = { bx:number; by:number; bz:number; x:number; y:number; z:number; vx:number; vy:number; vz:number; phase:number }
@@ -605,9 +623,19 @@ const initSnowflake = () => {
   canvas.addEventListener("pointerleave", () => { pointer.active = false })
 
   const start = performance.now()
+  let visible = false
+  let frame = 0
+  let lastFrame = 0
   const render = (now: number) => {
+    if (!visible || document.hidden) return
+    const frameInterval = constrainedDevice ? 50 : 1000 / 30
+    if (!reducedMotion && now - lastFrame < frameInterval) {
+      frame = requestAnimationFrame(render)
+      return
+    }
+    lastFrame = now
     const rect = canvas.getBoundingClientRect()
-    const ratio = Math.min(devicePixelRatio, 2)
+    const ratio = canvasRatio(1.4, 1.1)
     const width = Math.max(1, Math.round(rect.width * ratio))
     const height = Math.max(1, Math.round(rect.height * ratio))
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
@@ -661,9 +689,25 @@ const initSnowflake = () => {
     })
     context.globalAlpha = 1
     context.shadowBlur = 0
-    requestAnimationFrame(render)
+    if (!reducedMotion) frame = requestAnimationFrame(render)
   }
-  requestAnimationFrame(render)
+
+  const startRendering = () => {
+    if (!visible || document.hidden) return
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(render)
+  }
+  const visibilityObserver = new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting
+    if (visible) startRendering()
+    else cancelAnimationFrame(frame)
+  }, { rootMargin: "120px 0px", threshold: 0 })
+  visibilityObserver.observe(canvas)
+  document.addEventListener("visibilitychange", startRendering, { signal: lifecycleSignal })
+  lifecycleSignal.addEventListener("abort", () => {
+    cancelAnimationFrame(frame)
+    visibilityObserver.disconnect()
+  }, { once: true })
 }
 
 type ManualNode = { slug:string; title:string; links:string[]; x:number; y:number; homeX:number; homeY:number; vx:number; vy:number; size:number; category:string }
@@ -967,11 +1011,15 @@ const initKnowledgeMap = async () => {
 
   let lastFrame = 0
   let focusProgress = 0
+  let visible = false
+  let frame = 0
   const render = (now: number) => {
-    if (now - lastFrame < 30) { requestAnimationFrame(render); return }
+    if (!visible || document.hidden) return
+    const frameInterval = constrainedDevice ? 50 : 1000 / 30
+    if (now - lastFrame < frameInterval) { frame = requestAnimationFrame(render); return }
     lastFrame = now
     const rect = canvas.getBoundingClientRect()
-    const ratio = Math.min(devicePixelRatio, 2)
+    const ratio = canvasRatio(1.4, 1.1)
     const width = Math.max(1, Math.round(rect.width * ratio)), height = Math.max(1, Math.round(rect.height * ratio))
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
     context.clearRect(0, 0, width, height)
@@ -1086,9 +1134,25 @@ const initKnowledgeMap = async () => {
       if (!drag.active) canvas.style.cursor = "grab"
       tooltip.hidden = true
     }
-    requestAnimationFrame(render)
+    frame = requestAnimationFrame(render)
   }
-  requestAnimationFrame(render)
+
+  const startRendering = () => {
+    if (!visible || document.hidden) return
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(render)
+  }
+  const visibilityObserver = new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting
+    if (visible) startRendering()
+    else cancelAnimationFrame(frame)
+  }, { rootMargin: "160px 0px", threshold: 0 })
+  visibilityObserver.observe(wrapper)
+  document.addEventListener("visibilitychange", startRendering, { signal: lifecycleSignal })
+  lifecycleSignal.addEventListener("abort", () => {
+    cancelAnimationFrame(frame)
+    visibilityObserver.disconnect()
+  }, { once: true })
 }
 
 const initTimelineMotion = () => {
