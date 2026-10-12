@@ -1,4 +1,20 @@
-export const achievedCredentials = [
+type AchievedCredential = Readonly<{
+  id: string;
+  alias: string;
+  title: string;
+  badge: string;
+  certificate: string;
+  certificateVector: string;
+  date: string;
+  cardDate: string;
+  issued: string;
+  credential: string;
+  description: string;
+  htbUrl: string | null;
+  credlyUrl: string;
+}>;
+
+export const achievedCredentials: readonly AchievedCredential[] = [
   {
     id: "cpts",
     alias: "HTB CPTS",
@@ -26,7 +42,7 @@ export const achievedCredentials = [
     issued: "Oct. 12, 2026",
     credential: "2163ABCE16",
     description: "A hands-on assessment of web application penetration testing: identifying and exploiting vulnerabilities, chaining weaknesses into meaningful impact, and documenting findings in a professional report.",
-    htbUrl: null,
+    htbUrl: "https://profile.hackthebox.com/profile/019e367d-68ab-7287-bd06-ec8449a07adb/certificate/HTBCERT-2163ABCE16?utm_medium=copy_url",
     credlyUrl: "https://www.credly.com/badges/ccd1f9d0-70e0-403d-9b88-d55894d53cfe/public_url",
   },
-] as const;
+];
