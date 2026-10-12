@@ -1345,30 +1345,55 @@ const initTimelineMotion = () => {
 }
 
 const initCertificateMotion = () => {
-  const art = document.querySelector<HTMLElement>(".certificate-art")
-  if (!art || reducedMotion) return
-  const glare = art.querySelector<HTMLElement>(".certificate-glare")
-  art.addEventListener("pointermove", (event) => {
-    const rect = art.getBoundingClientRect()
-    const x = (event.clientX - rect.left) / rect.width
-    const y = (event.clientY - rect.top) / rect.height
-    art.style.transform = `perspective(1100px) rotateX(${(y - .5) * -12}deg) rotateY(${(x - .5) * 15}deg) scale(1.025)`
-    if (glare) glare.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,.5), rgba(121,239,242,.16) 18%, transparent 45%)`
+  if (reducedMotion || coarsePointer) return
+  document.querySelectorAll<HTMLElement>(".certificate-art").forEach((art) => {
+    const glare = art.querySelector<HTMLElement>(".certificate-glare")
+    let frame = 0
+    art.addEventListener("pointermove", (event) => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const rect = art.getBoundingClientRect()
+        const x = (event.clientX - rect.left) / rect.width
+        const y = (event.clientY - rect.top) / rect.height
+        art.style.transform = `perspective(1100px) rotateX(${(y - .5) * -12}deg) rotateY(${(x - .5) * 15}deg) scale(1.025)`
+        if (glare) glare.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,.5), rgba(var(--credential-rgb),.16) 18%, transparent 45%)`
+      })
+    }, { passive: true, signal: lifecycleSignal })
+    art.addEventListener("pointerleave", () => {
+      cancelAnimationFrame(frame)
+      art.style.transform = ""
+      if (glare) glare.style.background = ""
+    }, { signal: lifecycleSignal })
   })
-  art.addEventListener("pointerleave", () => { art.style.transform = ""; if (glare) glare.style.background = "" })
 }
 
 const mobileNavigation = document.querySelector<HTMLDetailsElement>(".mobile-nav")
 mobileNavigation?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => mobileNavigation.removeAttribute("open")))
 
 const initDialogs = () => {
+  const openDialog = (id: string | undefined) => {
+    if (!id) return
+    const dialog = document.getElementById(id)
+    if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal()
+  }
   document.querySelectorAll<HTMLElement>("[data-dialog]").forEach((trigger) => {
-    trigger.addEventListener("click", () => document.querySelector<HTMLDialogElement>(`#${trigger.dataset.dialog}`)?.showModal())
+    trigger.addEventListener("click", () => openDialog(trigger.dataset.dialog), { signal: lifecycleSignal })
+  })
+  document.querySelectorAll<HTMLButtonElement>("[data-verification-notice]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const notice = document.getElementById(button.dataset.verificationNotice ?? "")
+      if (!notice) return
+      notice.hidden = !notice.hidden
+      button.setAttribute("aria-expanded", String(!notice.hidden))
+    }, { signal: lifecycleSignal })
   })
   document.querySelectorAll<HTMLDialogElement>("dialog").forEach((dialog) => {
     dialog.querySelectorAll<HTMLElement>("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()))
     dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close() })
   })
+  const openHashCredential = () => openDialog(document.getElementById(location.hash.slice(1))?.dataset.dialog)
+  openHashCredential()
+  window.addEventListener("hashchange", openHashCredential, { signal: lifecycleSignal })
 }
 
 initCursorTrail()

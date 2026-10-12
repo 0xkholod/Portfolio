@@ -2,6 +2,7 @@
 import { ArrowRight, BookOpen, Network, ShieldCheck, X } from "@lucide/astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PlatformLinks from "../components/PlatformLinks.astro";
+import { achievedCredentials } from "../data/credentials";
 ---
 
 <BaseLayout current="home">
@@ -18,11 +19,15 @@ import PlatformLinks from "../components/PlatformLinks.astro";
       </div>
       <p class="legal-name">Alejandro Gómez Kholodilov</p>
       <p class="hero-description">I secure Active Directory environments and web applications, applying offensive-security knowledge to test, validate, and strengthen the environments I harden.</p>
-      <a class="credential-chip" href="/credentials#cpts" aria-label="View the verified HTB CPTS credential">
-        <span class="credential-badge"><img src="/certifications/htb-cpts-badge.png" alt="HTB CPTS badge" /></span>
-        <span><small>VERIFIED CREDENTIAL</small><b>HTB CPTS</b></span>
-        <ShieldCheck size={18} />
-      </a>
+      <div class="hero-credentials" aria-label="Achieved certifications">
+        {achievedCredentials.map((credential) => (
+          <a class="credential-chip" data-credential={credential.id} href={`/credentials#${credential.id}`} aria-label={`View the verified ${credential.alias} credential`}>
+            <span class="credential-badge"><img src={credential.badge} alt="" width="38" height="38" /></span>
+            <span><small>VERIFIED CREDENTIAL</small><b>{credential.alias}</b></span>
+            <ShieldCheck size={18} />
+          </a>
+        ))}
+      </div>
     </div>
     <PlatformLinks />
     <div class="creed reveal" aria-label="Personal principle">
