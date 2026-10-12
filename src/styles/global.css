@@ -292,6 +292,7 @@ html.performance-lite .desktop-nav .manual-nav,
 html.performance-lite .creed span,
 html.performance-lite .footer-mark span,
 html.performance-lite .badge-frame::after,
+html.performance-lite .credential-card-sheen::after,
 html.performance-lite .badge-orbit::before,
 html.performance-lite .badge-orbit img { animation: none !important; }
 
@@ -535,9 +536,14 @@ a.article-card:hover .article-visual img { transform: scale(1.025); filter: satu
 [data-credential] .credential-badge::after { background: linear-gradient(105deg, transparent, rgba(255,255,255,.88), rgba(var(--credential-rgb),.44), transparent); }
 .credential-grid { grid-template-columns: repeat(3,minmax(0,338px)); gap: 1.4rem; }
 .credential-card[data-credential] { scroll-margin-top: 110px; }
-.credential-card[data-credential].badge-frame { border-color: rgba(var(--credential-rgb),.56); background: radial-gradient(circle at 50% 36%, rgba(var(--credential-rgb),.17), transparent 45%), linear-gradient(145deg,var(--credential-panel),#141a27); box-shadow: 0 0 0 5px rgba(var(--credential-rgb),.025), 0 28px 70px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.05), inset 0 0 42px rgba(var(--credential-rgb),.045); }
-.credential-card[data-credential].badge-frame:is(:hover,:focus-visible) { border-color: var(--credential-soft); box-shadow: 0 0 0 5px rgba(var(--credential-rgb),.04), 0 30px 76px rgba(0,0,0,.38), inset 0 0 48px rgba(var(--credential-rgb),.1); }
-.credential-card[data-credential]::after { background: conic-gradient(from 20deg,transparent 0 35%,rgba(var(--credential-rgb),.13),transparent 55% 100%); pointer-events: none; }
+.credential-card[data-credential].badge-frame { --credential-ring: rgba(var(--credential-rgb),.56); border: 0; padding: calc(1.4rem + 2px); transform-style: flat; isolation: isolate; background: radial-gradient(circle at 50% 36%, rgba(var(--credential-rgb),.17), transparent 45%), linear-gradient(145deg,var(--credential-panel),#141a27); box-shadow: 0 0 0 5px rgba(var(--credential-rgb),.025), 0 28px 70px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.05), inset 0 0 42px rgba(var(--credential-rgb),.045); }
+.credential-card[data-credential].badge-frame:is(:hover,:focus-visible) { --credential-ring: var(--credential-soft); box-shadow: 0 0 0 5px rgba(var(--credential-rgb),.04), 0 30px 76px rgba(0,0,0,.38), inset 0 0 48px rgba(var(--credential-rgb),.1); }
+/* Paint one continuous contour; keep the rotating sheen away from its rounded corners. */
+.credential-card[data-credential]::before { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--credential-ring); pointer-events: none; transition: box-shadow .25s; }
+.credential-card[data-credential]::after { content: none; }
+.credential-card-sheen { position: absolute; inset: 2px; z-index: 0; overflow: hidden; border-radius: 22px; clip-path: inset(0 round 22px); pointer-events: none; }
+.credential-card-sheen::after { content: ""; position: absolute; inset: -40%; background: conic-gradient(from 20deg,transparent 0 35%,rgba(var(--credential-rgb),.13),transparent 55% 100%); animation: frame-sweep 9s linear infinite; }
+.credential-card[data-credential] .badge-check { top: calc(1.6rem + 2px); right: calc(1.6rem + 2px); }
 [data-credential] .badge-orbit { border-color: rgba(var(--credential-rgb),.16); box-shadow: inset 0 0 35px rgba(var(--credential-rgb),.1); }
 [data-credential] .badge-orbit::before { border-color: rgba(var(--credential-rgb),.3); }
 [data-credential] .badge-orbit img { filter: drop-shadow(0 0 16px rgba(var(--credential-rgb),.5)); }
